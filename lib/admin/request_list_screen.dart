@@ -25,6 +25,91 @@ class _RequestListingScreenState extends State<RequestListingScreen>
     return userDoc.data() ?? {};
   }
 
+  // Function to get a list of available drivers
+  Future<List<Map<String, dynamic>>> getAvailableDrivers() async {
+    final driversSnapshot = await FirebaseFirestore.instance.collection('drivers').get();
+    return driversSnapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList();
+  }
+
+  // Function to show a driver selection dialog
+  Future<void> selectDriver(BuildContext context, String requestId) async {
+    List<Map<String, dynamic>> drivers = await getAvailableDrivers();
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Select Driver'),
+          content: SizedBox(
+            height: 250, // Adjust height as needed
+            child: ListView.builder(
+              itemCount: drivers.length,
+              itemBuilder: (context, index) {
+                final driver = drivers[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: NetworkImage(driver['licensePhoto']),
+                  ),
+                  title: Text(driver['name']),
+                  subtitle: Text(driver['phone']),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    await assignDriverToRequest(requestId, driver,);
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Function to assign the selected driver to the request
+  Future<void> assignDriverToRequest(String requestId, Map<String, dynamic> driver) async {
+    try {
+      // Update the request document with driver details and mark it as accepted
+      await FirebaseFirestore.instance.collection('requests').doc(requestId).update({
+        'driver': {
+          'name': driver['name'],
+          'email': driver['email'],
+          'phone': driver['phone'],
+          'id' : driver['id'],
+          'licensePhoto': driver['licensePhoto'],
+        },
+        'status': 'accepted',  // Ensure status is set to 'accepted' after assigning a driver
+        'isAccepted': true,
+        'assignedAt': FieldValue.serverTimestamp(), // Track when the driver was assigned
+      });
+
+      // Optionally, notify the user or admin that the request has been updated
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Driver assigned and request accepted successfully!')),
+      );
+    } catch (e) {
+      // Handle any errors during the update
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to assign driver.')),
+      );
+    }
+  }
+
+  // Function to accept a request
+  Future<void> acceptRequest(String requestId) async {
+    try {
+    
+      // Now, show the driver selection dialog
+      await selectDriver(context, requestId);
+
+        // First, mark the request as accepted in the 'requests' collection
+     
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to accept the request.')),
+      );
+    }
+  }
+
   Widget buildRequestList(String statusFilter) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -126,30 +211,44 @@ class _RequestListingScreenState extends State<RequestListingScreen>
                                 ),
                               ],
                             ),
-                            TextButton.icon(
-                              onPressed: () async {
-                                final location = userDetails['location'];
-                                final latitude = location['latitude'];
-                                final longitude = location['longitude'];
-                                final url =
-                                    'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
-
-                                if (await canLaunchUrl(Uri.parse(url))) {
-                                  await launchUrl(Uri.parse(url),
-                                      mode: LaunchMode.externalApplication);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Could not open Google Maps')),
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.map, size: 16, color: Colors.teal),
-                              label: const Text(
-                                'View on Google Maps',
-                                style: TextStyle(fontSize: 12, color: Colors.teal),
+                            // Accept Button with style
+                            if (!request['isAccepted'])
+                              TextButton.icon(
+                                onPressed: () => acceptRequest(request.id),
+                                icon: const Icon(Icons.check_circle, color: Colors.white),
+                                label: const Text(
+                                  'Accept',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                                style: TextButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
                               ),
-                            ),
                           ],
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            final location = userDetails['location'];
+
+                            final latitude = location['latitude'];
+                            final longitude = location['longitude'];
+                            final url = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+                            if (await canLaunchUrl(Uri.parse(url))) {
+                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Could not open Google Maps')),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.map, size: 16, color: Colors.teal),
+                          label: const Text(
+                            'Maps',
+                            style: TextStyle(fontSize: 12, color: Colors.teal),
+                          ),
                         ),
                       ],
                     ),
@@ -184,7 +283,7 @@ class _RequestListingScreenState extends State<RequestListingScreen>
           controller: _tabController,
           children: [
             buildRequestList('pending'), // Show pending requests
-            buildRequestList('accept'), // Show accepted requests
+            buildRequestList('accepted'), // Show accepted requests
           ],
         ),
       ),

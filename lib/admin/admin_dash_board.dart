@@ -1,3 +1,4 @@
+import 'package:eccoconnect/admin/admin_drivers_list_screen.dart';
 import 'package:eccoconnect/admin/request_list_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -14,8 +15,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final List<Widget> _screens = [
     RequestListingScreen(),
     HomeScreen(),
-    ManageUsersScreen(),
-    ManageDriversScreen(),
+
+    
+   DriverListingScreen(),
+   ManageUsersScreen(),
     PickupScreen(),
     
   ];

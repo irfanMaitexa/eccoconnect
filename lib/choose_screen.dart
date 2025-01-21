@@ -1,4 +1,5 @@
 import 'package:eccoconnect/admin/admin_login.dart';
+import 'package:eccoconnect/driver/driver_login_screen.dart';
 import 'package:eccoconnect/user/user_login_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -40,6 +41,8 @@ class ChooseScreen extends StatelessWidget {
               role: 'Driver',
               icon: Icons.local_shipping,
               onPressed: () {
+
+                Navigator.push(context, MaterialPageRoute(builder: (context) => DriverLoginScreen(),));
                 // Navigate to Driver Screen
               },
             ),
