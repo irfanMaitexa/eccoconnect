@@ -1,4 +1,5 @@
 import 'package:eccoconnect/driver/driver_assigned_work_list_screen.dart';
+import 'package:eccoconnect/driver/driver_profile_screen.dart';
 import 'package:flutter/material.dart';
 
 class DriverRootScreen extends StatefulWidget {
@@ -11,7 +12,7 @@ class _DriverRootScreenState extends State<DriverRootScreen> {
 
   final List<Widget> _screens = [
     DriverRequestScreen(),
-    ProfileScreen(),
+    DriverProfileScreen(),
   ];
 
   void _onTabTapped(int index) {
@@ -68,14 +69,4 @@ class BookingScreen extends StatelessWidget {
   }
 }
 
-class ProfileScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        "Profile Screen",
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
+

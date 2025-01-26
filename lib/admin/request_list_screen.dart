@@ -77,7 +77,8 @@ class _RequestListingScreenState extends State<RequestListingScreen>
           'id' : driver['id'],
           'licensePhoto': driver['licensePhoto'],
         },
-        'status': 'accepted',  // Ensure status is set to 'accepted' after assigning a driver
+        'status': 'accepted',
+        'driverStatus':'Assigned', // Ensure status is set to 'accepted' after assigning a driver
         'isAccepted': true,
         'assignedAt': FieldValue.serverTimestamp(), // Track when the driver was assigned
       });

@@ -1,4 +1,5 @@
 import 'package:eccoconnect/admin/admin_drivers_list_screen.dart';
+import 'package:eccoconnect/admin/admin_user_list_screen.dart';
 import 'package:eccoconnect/admin/request_list_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -14,13 +15,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   final List<Widget> _screens = [
     RequestListingScreen(),
-    HomeScreen(),
-
-    
-   DriverListingScreen(),
-   ManageUsersScreen(),
+    AdminUsersListScreen(),
+    DriverListingScreen(),
+    ManageUsersScreen(),
     PickupScreen(),
-    
+    ComplaintsScreen(),
   ];
 
   void _onTabTapped(int index) {
@@ -32,7 +31,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -46,7 +44,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: Icon(Icons.request_page),
             label: 'Requests',
           ),
-          
           BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'Users',
@@ -59,7 +56,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             icon: Icon(Icons.local_shipping),
             label: 'Pickup',
           ),
-          
+          BottomNavigationBarItem(
+            icon: Icon(Icons.report_problem),
+            label: 'Complaints',
+          ),
         ],
       ),
     );
@@ -142,17 +142,6 @@ class ManageUsersScreen extends StatelessWidget {
   }
 }
 
-class ManageDriversScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Manage Drivers Screen',
-        style: TextStyle(fontSize: 24),
-      ),
-    );
-  }
-}
 
 class PickupScreen extends StatelessWidget {
   @override
@@ -165,4 +154,3 @@ class PickupScreen extends StatelessWidget {
     );
   }
 }
-

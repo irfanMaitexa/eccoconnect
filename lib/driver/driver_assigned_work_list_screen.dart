@@ -11,28 +11,27 @@ class DriverRequestScreen extends StatefulWidget {
 
 class _DriverRequestScreenState extends State<DriverRequestScreen> {
   late String currentUserId;
-  Map<int, bool> _showUserDetails = {}; // Use a map to track state for each request
+  Map<int, bool> _showUserDetails = {};
 
   @override
   void initState() {
     super.initState();
-    // Get the current user's UID using FirebaseAuth
     currentUserId = FirebaseAuth.instance.currentUser!.uid;
   }
 
-  // Fetch Requests and associated User Data
-  Future<List<Map<String, dynamic>>> fetchRequests() async {
+  Future<List<Map<String, dynamic>>> fetchRequests(String status) async {
     final querySnapshot = await FirebaseFirestore.instance
         .collection('requests')
-        .where('driver.id', isEqualTo: currentUserId) // Filter requests by driver ID
+        .where('driver.id', isEqualTo: currentUserId)
+        .where('driverStatus', isEqualTo: status)
         .get();
 
     List<Map<String, dynamic>> requests = [];
 
     for (var doc in querySnapshot.docs) {
-      var requestData = doc.data() as Map<String, dynamic>;
+      var requestData = doc.data();
+      requestData['id'] = doc.id;
 
-      // Fetch user data using userId from the request
       var userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(requestData['userId'])
@@ -40,7 +39,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
 
       if (userDoc.exists) {
         var userData = userDoc.data() as Map<String, dynamic>;
-        requestData['userDetails'] = userData; // Add user details to the request
+        requestData['userDetails'] = userData;
       }
 
       requests.add(requestData);
@@ -49,173 +48,234 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     return requests;
   }
 
-  // Function to launch Google Maps with the user's location
- Future<void> openMap(double latitude, double longitude) async {
-  try {
-    // Create an instance of the Location plugin
-    Location location = Location();
-
-    // Check if location service is enabled
-    bool serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      // Request to enable location service
-      serviceEnabled = await location.requestService();
+  Future<void> openMap(double latitude, double longitude) async {
+    try {
+      Location location = Location();
+      bool serviceEnabled = await location.serviceEnabled();
       if (!serviceEnabled) {
-        throw 'Location service is not enabled';
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) throw 'Location service is not enabled';
       }
-    }
-
-    // Check if location permissions are granted
-    PermissionStatus permission = await location.hasPermission();
-    if (permission == PermissionStatus.denied) {
-      permission = await location.requestPermission();
-      if (permission != PermissionStatus.granted) {
-        throw 'Location permission is not granted';
+      PermissionStatus permission = await location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await location.requestPermission();
+        if (permission != PermissionStatus.granted) throw 'Permission denied';
       }
+      LocationData currentLocation = await location.getLocation();
+      double currentLat = currentLocation.latitude!;
+      double currentLong = currentLocation.longitude!;
+      final url =
+          'https://www.google.com/maps/dir/?api=1&origin=$currentLat,$currentLong&destination=$latitude,$longitude';
+      if (await canLaunch(url)) {
+        await launch(url);
+      } else {
+        throw 'Could not open map';
+      }
+    } catch (e) {
+      throw 'Error: $e';
     }
-
-    // Get current location of the user
-    LocationData currentLocation = await location.getLocation();
-    double currentLat = currentLocation.latitude!;
-    double currentLong = currentLocation.longitude!;
-
-    // Construct the URL for Google Maps Directions
-    final url =
-        'https://www.google.com/maps/dir/?api=1&origin=$currentLat,$currentLong&destination=$latitude,$longitude';
-
-    // Launch the URL
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not open map';
-    }
-  } catch (e) {
-    throw 'Error: $e';
   }
-}
+
+  Widget buildRequestList(String status) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: fetchRequests(status),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text('No $status requests available.'));
+        } else {
+          List<Map<String, dynamic>> requests = snapshot.data!;
+          return ListView.builder(
+            itemCount: requests.length,
+            itemBuilder: (context, index) {
+              final request = requests[index];
+              final user = request['userDetails'];
+              bool _isDetailsVisible = _showUserDetails[index] ?? false;
+
+              return Card(
+                margin: EdgeInsets.all(12),
+                elevation: 5,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.all(16),
+                      leading: CircleAvatar(
+                        radius: 30,
+                        backgroundImage: NetworkImage(request['imageUrl']),
+                        backgroundColor: Colors.grey[200],
+                      ),
+                      title: Text(
+                        request['driver']['name'] ?? 'Unknown Driver',
+                        style:
+                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Material: ${request['material']}',
+                            style: TextStyle(
+                                fontSize: 14, color: Colors.grey[600]),
+                          ),
+                          Text(
+                            'Quantity: ${request['quantity']}',
+                            style: TextStyle(
+                                fontSize: 14, color: Colors.grey[600]),
+                          ),
+                          Divider(),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _showUserDetails[index] = !_isDetailsVisible;
+                              });
+                            },
+                            child: Text(
+                              'User: ${user['name']}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.teal,
+                              ),
+                            ),
+                          ),
+                          if (_isDetailsVisible) ...[
+                            Divider(),
+                            Text('Email: ${user['email']}'),
+                            Text('Phone: ${user['phone']}'),
+                            Divider(),
+                            if (user['location'] != null)
+                              Row(
+                                children: [
+                                  Icon(Icons.location_on, color: Colors.teal),
+                                  SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () {
+                                      openMap(user['location']['latitude'],
+                                          user['location']['longitude']);
+                                    },
+                                    child: Text(
+                                      'View on Map',
+                                      style: TextStyle(
+                                        color: Colors.teal,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+
+           status == 'Completed'  ? SizedBox() :        Align(
+  alignment: Alignment.centerRight,
+  child: Padding(
+    padding: const EdgeInsets.all(8.0),
+    child: ElevatedButton(
+      onPressed: () async {
+        String nextStatus;
+        if (status == 'Assigned') {
+          nextStatus = 'Ongoing';
+        } else if (status == 'Ongoing') {
+          nextStatus = 'Completed';
+        } else {
+          nextStatus = '';
+        }
+
+        if (nextStatus.isNotEmpty) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('requests')
+                .doc(request['id'])
+                .update({'driverStatus': nextStatus}); 
+                
+                await FirebaseFirestore.instance
+                .collection('requests')
+                .doc(request['id'])
+                .update({'status': nextStatus});
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Status updated to $nextStatus'),
+              ),
+            );
+            setState(() {}); // Refresh UI
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to update status: $e'),
+              ),
+            );
+          }
+        }
+      },
+      
+      style: ElevatedButton.styleFrom(
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        backgroundColor: Colors.teal,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      child: Text(
+        status == 'Assigned'
+            ? 'Ongoing'
+            : status == 'Ongoing'
+                ? 'Complete'
+                : 'Completed',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    ),
+  ),
+)
+
+                 
+                  
+                  
+                  
+                  ],
+                ),
+              );
+            },
+          );
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Driver Requests'),
-        centerTitle: true,
-        backgroundColor: Colors.teal,
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: fetchRequests(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(child: Text('No requests available.'));
-          } else {
-            List<Map<String, dynamic>> requests = snapshot.data!;
-            return ListView.builder(
-              itemCount: requests.length,
-              itemBuilder: (context, index) {
-                final request = requests[index];
-                final user = request['userDetails'];
-                
-                // Track user details state per request
-                bool _isDetailsVisible = _showUserDetails[index] ?? false;
-
-                return Card(
-                  margin: EdgeInsets.all(12),
-                  elevation: 5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.all(16),
-                    leading: CircleAvatar(
-                      radius: 30,
-                      backgroundImage: NetworkImage(request['imageUrl']),
-                      backgroundColor: Colors.grey[200],
-                    ),
-                    title: Text(
-                      request['driver']['name'] ?? 'Unknown Driver',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Material: ${request['material']}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Text(
-                          'Quantity: ${request['quantity']}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Divider(),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _showUserDetails[index] = !_isDetailsVisible;
-                            });
-                          },
-                          child: Text(
-                            'User: ${user['name']}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
-                            ),
-                          ),
-                        ),
-                        if (_isDetailsVisible) ...[
-                          Divider(),
-                          Text('Email: ${user['email']}'),
-                          Text('Phone: ${user['phone']}'),
-                          Divider(),
-                          if (user['location'] != null)
-                            Row(
-                              children: [
-                                Icon(Icons.location_on, color: Colors.teal),
-                                SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: () {
-                                    openMap(user['location']['latitude'],
-                                        user['location']['longitude']);
-                                  },
-                                  child: Text(
-                                    'View on Map',
-                                    style: TextStyle(
-                                      color: Colors.teal,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ],
-                    ),
-                    trailing: Icon(
-                      Icons.arrow_forward,
-                      color: Colors.teal,
-                    ),
-                    onTap: () {
-                      // Navigate to a detailed request screen if needed
-                    },
-                  ),
-                );
-              },
-            );
-          }
-        },
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          
+          bottom: TabBar(
+            tabs: [
+              Tab(text: 'Assigned'),
+              Tab(text: 'Ongoing'),
+              Tab(text: 'Completed'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            buildRequestList('Assigned'),
+            buildRequestList('Ongoing'),
+            buildRequestList('Completed'),
+          ],
+        ),
       ),
     );
   }

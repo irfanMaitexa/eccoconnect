@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloudinary/cloudinary.dart';
+import 'package:eccoconnect/user/user_upload_file_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -70,6 +71,8 @@ class _UserRequestScreenState extends State<UserRequestScreen> with SingleTicker
                       _image = File(pickedFile.path);
                     });
                   }
+
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => UserUploadScreen(filePath: _image!.path,),));
                   Navigator.pop(context);
                 },
               ),
@@ -77,7 +80,11 @@ class _UserRequestScreenState extends State<UserRequestScreen> with SingleTicker
           ),
         );
       },
-    );
+    ).then((value) {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => UserUploadScreen(filePath: _image!.path,),));
+
+      
+    },);
   }
 
 bool isloading = false;
@@ -136,6 +143,7 @@ bool isloading = false;
       'createdAt': FieldValue.serverTimestamp(), // Add timestamp
       'status' : 'pending',
       'isAccepted' : false,
+      'paymentStatus' : false,
     });
 
     // Update local state
@@ -163,28 +171,11 @@ bool isloading = false;
       appBar: AppBar(
         title: Text('Waste Request', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.lightGreen,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white.withOpacity(0.7),
-          tabs: [
-            Tab(text: 'Pending'),
-            Tab(text: 'Accepted'),
-          ],
-        ),
+        
       ),
       body: isloading ? Center(child: CircularProgressIndicator(color: Colors.lightGreen,),) : Column(
         children: [
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildRequestList(pendingRequests),
-                _buildRequestList(acceptedRequests),
-              ],
-            ),
-          ),
+          
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -231,6 +222,12 @@ bool isloading = false;
                       ),
                     ),
                     SizedBox(width: 5),
+                    
+                  ],
+                ),
+                SizedBox(height: 40,),
+                Row(
+                  children: [
                     Expanded(
                       child: ElevatedButton(
                         onPressed: _addRequest,
@@ -245,7 +242,7 @@ bool isloading = false;
                       ),
                     ),
                   ],
-                ),
+                )
               ],
             ),
           ),
