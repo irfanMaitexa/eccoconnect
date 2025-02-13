@@ -1,170 +1,192 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:mime/mime.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
-class UserUploadScreen extends StatefulWidget {
-  final String filePath;
-
-  const UserUploadScreen({Key? key, required this.filePath}) : super(key: key);
-
+class ImageUploadScreen extends StatefulWidget {
   @override
-  _UserUploadScreenState createState() => _UserUploadScreenState();
+  _ImageUploadScreenState createState() => _ImageUploadScreenState();
 }
 
-class _UserUploadScreenState extends State<UserUploadScreen> {
-  late Future<Map<String, dynamic>> _uploadResponse;
+class _ImageUploadScreenState extends State<ImageUploadScreen> {
+  File? _image;
+  bool _isLoading = false;
+  List<dynamic> _results = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _uploadResponse = _uploadFile(widget.filePath);
-  }
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-  Future<Map<String, dynamic>> _uploadFile(String filePath) async {
-    var uri = Uri.parse('https://example.com/upload');
-    var request = http.MultipartRequest('POST', uri);
-
-    request.files.add(await http.MultipartFile.fromPath(
-      'file',
-      filePath,
-    ));
-
-    var response = await request.send();
-    if (response.statusCode == 200) {
-      final responseData = await response.stream.bytesToString();
-      return Map<String, dynamic>.from(responseData as Map);
-    } else {
-      throw Exception('Failed to upload file');
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
+      });
+      await _uploadImage();
     }
   }
 
-  String _formatDisposalInstructions(Map<String, dynamic> instructions) {
-    return '''
-    🗑️ Disposal: ${instructions['disposal']}
-    ♻️ Recycling: ${instructions['recycling']}
-    🌱 Composting: ${instructions['composting']}
-    ⚠️ Hazardous: ${instructions['hazardous']}
-    💡 Tips: ${instructions['tips']}
-    ''';
+  Future<void> _uploadImage() async {
+    if (_image == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('https://aa4d-117-243-137-240.ngrok-free.app/upload/image'),
+    );
+
+    request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
+
+    var response = await request.send();
+
+    if (response.statusCode == 200) {
+      var responseData = await response.stream.bytesToString();
+      var jsonResponse = json.decode(responseData);
+      setState(() {
+        _results = jsonResponse['results'];
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload image')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Upload & Predict'),
-        centerTitle: true,
-        backgroundColor: Colors.teal,
-        elevation: 0,
+        title: Text(
+          'Image Upload',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.lightGreen,
       ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.teal, Colors.lightGreenAccent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.lightGreen.shade50, Colors.lightGreen.shade100],
           ),
         ),
-        child: FutureBuilder<Map<String, dynamic>>(
-          future: _uploadResponse,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              );
-            } else if (snapshot.hasError) {
-              return Center(
-                child: Text(
-                  'Error: ${snapshot.error}',
-                  style: TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              );
-            } else if (snapshot.hasData) {
-              final data = snapshot.data!;
-              final predictedClass = data['predicted_class'] ?? 'Unknown';
-              final disposalInstructions = _formatDisposalInstructions(data['disposal_instructions'] ?? {});
-
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16.0),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              if (_image != null)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 5,
+                        offset: Offset(0, 2),
                       ),
-                      elevation: 6,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16.0),
-                        child: Image.file(
-                          File(widget.filePath),
-                          height: 250,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(
+                      _image!,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
-                    SizedBox(height: 20),
-                    Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16.0),
-                      ),
+                  ),
+                ),
+              SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _pickImage,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.lightGreen,
+                    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: Text(
+                    'Upload Image',
+                    style: TextStyle(
                       color: Colors.white,
-                      elevation: 6,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Predicted Class',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.teal,
-                              ),
-                            ),
-                            SizedBox(height: 10),
-                            Text(
-                              predictedClass,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                            Text(
-                              'Disposal Instructions',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.teal,
-                              ),
-                            ),
-                            SizedBox(height: 10),
-                            Text(
-                              disposalInstructions,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
+                  ),
                 ),
-              );
-            } else {
-              return Center(
-                child: Text(
-                  'No data available.',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-              );
-            }
-          },
+              ),
+              SizedBox(height: 20),
+              _isLoading
+                  ? SpinKitFadingCircle(
+                      color: Colors.lightGreen,
+                      size: 50.0,
+                    )
+                  : Expanded(
+                      child: _results.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.image_search,
+                                    size: 60,
+                                    color: Colors.lightGreen,
+                                  ),
+                                  SizedBox(height: 10),
+                                  Text(
+                                    'No results found',
+                                    style: TextStyle(
+                                      color: Colors.lightGreen,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _results.length,
+                              itemBuilder: (context, index) {
+                                var result = _results[index];
+                                return Card(
+                                  elevation: 3,
+                                  margin: EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: ListTile(
+                                    title: Text(
+                                      result['label'],
+                                      style: TextStyle(
+                                        color: Colors.lightGreen.shade800,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      'Category: ${result['category']}',
+                                      style: TextStyle(
+                                        color: Colors.lightGreen.shade600,
+                                      ),
+                                    ),
+                                    
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+            ],
+          ),
         ),
       ),
     );

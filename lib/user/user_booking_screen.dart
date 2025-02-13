@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:eccoconnect/user/User_qr_code_scanner.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:simple_barcode_scanner/simple_barcode_scanner.dart';
 
 class UserBookingScreen extends StatefulWidget {
   const UserBookingScreen({Key? key}) : super(key: key);
@@ -17,13 +20,45 @@ class _UserBookingScreenState extends State<UserBookingScreen> with SingleTicker
   List<Map<String, dynamic>> assignedRequests = [];
   List<Map<String, dynamic>> completedRequests = [];
   final String uid = FirebaseAuth.instance.currentUser!.uid;
+  late Razorpay _razorpay;
+
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this); // Updated length to 4
+
+
+  _razorpay = Razorpay();
+  _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+  _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+  _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     fetchRequests();
   }
+
+
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+  print("Payment Successful: ${response.paymentId}");
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text("Payment Successful: ${response.paymentId}"))
+  );
+}
+
+void _handlePaymentError(PaymentFailureResponse response) {
+  print("Payment Failed: ${response.message}");
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text("Payment Failed: ${response.message}"))
+  );
+}
+
+void _handleExternalWallet(ExternalWalletResponse response) {
+  print("External Wallet Selected: ${response.walletName}");
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text("External Wallet Selected: ${response.walletName}"))
+  );
+}
+
 
   Future<void> fetchRequests() async {
     try {
@@ -95,6 +130,57 @@ class _UserBookingScreenState extends State<UserBookingScreen> with SingleTicker
               ],
             ),
     );
+  }
+
+
+  void openRazorpayPayment(String amount) {
+  var options = {
+    'key': 'rzp_test_QLvdqmBfoYL2Eu', // Replace with your Razorpay API Key
+    'amount': int.parse(amount) * 100, // Convert to paise
+    'name': 'Your App Name',
+    'description': 'Booking Payment',
+    'prefill': {
+      'contact': '9876543210',
+      'email': 'user@example.com',
+    },
+    'external': {
+      'wallets': ['paytm']
+    }
+  };
+
+  try {
+    _razorpay.open(options);
+  } catch (e) {
+    print("Error: $e");
+  }
+}
+
+
+ void scanQRCode() async {
+  String? res = await SimpleBarcodeScanner.scanBarcode(
+        context,
+        barcodeAppBar: BarcodeAppBar(
+          appBarTitle:  'Scan ',
+          centerTitle: false,
+          enableBackButton: true,
+          backButtonIcon: Icon(Icons.arrow_back_ios),
+        ),
+        isShowFlashIcon: true,
+        delayMillis: 2000,
+        cameraFace: CameraFace.back,
+
+
+      );
+
+     if(res != null){
+      final amount = res.toString();
+      openRazorpayPayment(amount);
+     }
+
+    // await Navigator.push(
+    //   context,
+    //   MaterialPageRoute(builder: (context) => QRScannerScreen()),
+    // );
   }
 
   Widget buildRequestList(List<Map<String, dynamic>> requests) {
@@ -169,6 +255,20 @@ class _UserBookingScreenState extends State<UserBookingScreen> with SingleTicker
                     ),
                   ],
                 ),
+                if (request['status'] == 'Ongoing' && !request['paymentStatus']) // Show payment button only if not paid
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: () {
+                scanQRCode();
+              },
+              child: const Text('Pay Now'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
               ],
             ),
           ),

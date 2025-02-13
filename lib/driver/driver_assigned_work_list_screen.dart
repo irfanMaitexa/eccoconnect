@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DriverRequestScreen extends StatefulWidget {
@@ -18,6 +19,39 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
     super.initState();
     currentUserId = FirebaseAuth.instance.currentUser!.uid;
   }
+
+
+  Future<String?> fetchPaymentAmount() async {
+    final doc = await FirebaseFirestore.instance.collection('wasteprice').get();
+    if (doc.docs.isNotEmpty) {
+      return doc.docs[0].data()['payment'].toString();
+    }
+    return null;
+  }
+
+
+
+  void showQRCode(BuildContext context, String amount) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Payment QR Code'),
+      content: QrImageView(  // Use QrImageView for latest qr_flutter version
+        data: '$amount',
+        version: QrVersions.auto,
+        size: 200.0,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
+
 
   Future<List<Map<String, dynamic>>> fetchRequests(String status) async {
     final querySnapshot = await FirebaseFirestore.instance
@@ -173,6 +207,30 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
                         ],
                       ),
                     ),
+                    if(status == 'Ongoing')
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                 
+                                  GestureDetector(
+                                    onTap: () async{
+
+                                     final amount =     await fetchPaymentAmount();
+                                      
+                                      showQRCode(context, amount!);
+                                     
+                                    },
+                                    child: Text(
+                                      'Make payment qr code',
+                                      style: TextStyle(
+                                        color: Colors.teal,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
 
 
            status == 'Completed'  ? SizedBox() :        Align(
@@ -195,7 +253,7 @@ class _DriverRequestScreenState extends State<DriverRequestScreen> {
             await FirebaseFirestore.instance
                 .collection('requests')
                 .doc(request['id'])
-                .update({'driverStatus': nextStatus}); 
+                .update({'driverStatus': nextStatus,'paymentStatus': true}); 
                 
                 await FirebaseFirestore.instance
                 .collection('requests')

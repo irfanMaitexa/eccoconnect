@@ -72,7 +72,6 @@ class _UserRequestScreenState extends State<UserRequestScreen> with SingleTicker
                     });
                   }
 
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => UserUploadScreen(filePath: _image!.path,),));
                   Navigator.pop(context);
                 },
               ),
@@ -81,7 +80,6 @@ class _UserRequestScreenState extends State<UserRequestScreen> with SingleTicker
         );
       },
     ).then((value) {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => UserUploadScreen(filePath: _image!.path,),));
 
       
     },);
@@ -249,7 +247,9 @@ bool isloading = false;
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _pickImage,
+        onPressed: () {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => ImageUploadScreen(),));
+        },
         backgroundColor: Colors.lightGreen,
         child: Icon(Icons.camera_alt, color: Colors.white),
         tooltip: 'Pick Waste Image',

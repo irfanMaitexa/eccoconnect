@@ -138,29 +138,29 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                         ),
                       ),
                       Divider(color: Colors.green),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Availability',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                            ),
-                          ),
-                          Switch(
-                            value: isAvailable,
-                            activeColor: Colors.green,
-                            onChanged: (value) {
-                              setState(() {
-                                isAvailable = value;
-                              });
-                              toggleAvailability(FirebaseAuth.instance.currentUser!.uid);
-                            },
-                          ),
-                        ],
-                      ),
+                      // Row(
+                      //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      //   children: [
+                      //     Text(
+                      //       'Availability',
+                      //       style: TextStyle(
+                      //         fontSize: 18,
+                      //         fontWeight: FontWeight.bold,
+                      //         color: Colors.green,
+                      //       ),
+                      //     ),
+                      //     Switch(
+                      //       value: isAvailable,
+                      //       activeColor: Colors.green,
+                      //       onChanged: (value) {
+                      //         setState(() {
+                      //           isAvailable = value;
+                      //         });
+                      //         toggleAvailability(FirebaseAuth.instance.currentUser!.uid);
+                      //       },
+                      //     ),
+                      //   ],
+                      // ),
                       SizedBox(height: 20),
                     ],
                   ),

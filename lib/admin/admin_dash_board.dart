@@ -1,4 +1,6 @@
+import 'package:eccoconnect/admin/admin_complaint_replay_screen.dart';
 import 'package:eccoconnect/admin/admin_drivers_list_screen.dart';
+import 'package:eccoconnect/admin/admin_pick_up_screen.dart';
 import 'package:eccoconnect/admin/admin_user_list_screen.dart';
 import 'package:eccoconnect/admin/request_list_screen.dart';
 import 'package:flutter/material.dart';
@@ -17,9 +19,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     RequestListingScreen(),
     AdminUsersListScreen(),
     DriverListingScreen(),
-    ManageUsersScreen(),
-    PickupScreen(),
-    ComplaintsScreen(),
+    AdminCompletedOrdersScreen(),
+    AdminComplaintScreen()
+   
   ];
 
   void _onTabTapped(int index) {
@@ -66,91 +68,3 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  void _navigateToComplaints(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ComplaintsScreen()),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.dashboard, size: 80, color: Colors.green),
-          SizedBox(height: 20),
-          Text(
-            'Welcome to the Admin Dashboard',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 10),
-          Text(
-            'Use the bottom navigation to manage users, drivers, and more.',
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 30),
-          ElevatedButton.icon(
-            onPressed: () => _navigateToComplaints(context),
-            icon: Icon(Icons.report_problem, color: Colors.white),
-            label: Text('View Complaints'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ComplaintsScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Complaints'),
-        backgroundColor: Colors.red,
-      ),
-      body: Center(
-        child: Text(
-          'Complaints Screen',
-          style: TextStyle(fontSize: 24),
-        ),
-      ),
-    );
-  }
-}
-
-class ManageUsersScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Users',
-        style: TextStyle(fontSize: 24),
-      ),
-    );
-  }
-}
-
-
-class PickupScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Pickup Screen',
-        style: TextStyle(fontSize: 24),
-      ),
-    );
-  }
-}
