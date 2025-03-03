@@ -22,7 +22,8 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
   Position? _currentPosition;
-  String _currentAddress = ''; // Variable to store current address
+  String _currentAddress = '';
+  final _formKey = GlobalKey<FormState>(); // Key for form validation
 
   @override
   void initState() {
@@ -51,67 +52,59 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
     }
 
     _currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      print(_currentPosition);
+    print(_currentPosition);
+
     // Fetch the address from latitude and longitude
     if (_currentPosition != null) {
       List<Placemark> placemarks = await placemarkFromCoordinates(
         _currentPosition!.latitude, _currentPosition!.longitude);
 
-        print(placemarks);
+      print(placemarks);
 
       // Take the first result from the list
       Placemark place = placemarks[0];
       setState(() {
-        _currentAddress = "${place.name??''}, ${place.locality??''},${place.subLocality??''}, ${place.street??''}, ${place.administrativeArea??''},${place.postalCode??''}";
+        _currentAddress = "${place.name ?? ''}, ${place.locality ?? ''}, ${place.subLocality ?? ''}, ${place.street ?? ''}, ${place.administrativeArea ?? ''}, ${place.postalCode ?? ''}";
       });
     }
   }
 
   // Function to handle user sign up
   Future<void> _signUp() async {
-    if (_nameController.text.isEmpty || _emailController.text.isEmpty || _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty || _phoneController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("All fields are required!")));
-      return;
-    }
-
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Passwords do not match!")));
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
-        'name': _nameController.text,
-        'email': _emailController.text,
-        'phone': _phoneController.text,
-        'location': {
-          'latitude': _currentPosition?.latitude,
-          'longitude': _currentPosition?.longitude,
-        },
-      });
-
+    if (_formKey.currentState!.validate()) { // Validate the form
       setState(() {
-        _isLoading = false;
+        _isLoading = true;
       });
 
-      Navigator.pop(context);
+      try {
+        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Sign Up Successful!")));
-    } on FirebaseAuthException catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message!)));
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'name': _nameController.text,
+          'email': _emailController.text,
+          'phone': _phoneController.text,
+          'location': {
+            'latitude': _currentPosition?.latitude,
+            'longitude': _currentPosition?.longitude,
+          },
+        });
+
+        setState(() {
+          _isLoading = false;
+        });
+
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Sign Up Successful!")));
+      } on FirebaseAuthException catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message!)));
+      }
     }
   }
 
@@ -126,57 +119,96 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
-          child: Column(
-            children: [
-               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.location_on),
-                    Expanded(
-                      child: Text(
-                        _currentAddress.isNotEmpty ? _currentAddress : 'Fetching address...',
-                        style: TextStyle(color: Colors.black),
+          child: Form(
+            key: _formKey, // Assign the form key
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.location_on),
+                      Expanded(
+                        child: Text(
+                          _currentAddress.isNotEmpty ? _currentAddress : 'Fetching address...',
+                          style: TextStyle(color: Colors.black),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              if (_isLoading) CircularProgressIndicator(),
-              _buildTextField(_nameController, 'Name'),
-              _buildTextField(_emailController, 'Email'),
-              _buildTextField(_phoneController, 'Phone Number'),
-              _buildPasswordField(_passwordController, 'Password'),
-              _buildPasswordField(_confirmPasswordController, 'Confirm Password'),
-
-              // Display current location address
-             
-              SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _signUp,
-                  child: Text('Sign Up', style: TextStyle(color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.lightGreen,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: EdgeInsets.symmetric(vertical: 15),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                if (_isLoading) CircularProgressIndicator(),
+                _buildTextField(_nameController, 'Name', (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Name is required';
+                  }
+                  if (!RegExp(r'^[a-zA-Z ]+$').hasMatch(value)) {
+                    return 'Name can only contain letters and spaces';
+                  }
+                  return null;
+                }),
+                _buildTextField(_emailController, 'Email', (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Email is required';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    return 'Enter a valid email address';
+                  }
+                  return null;
+                }),
+                _buildTextField(_phoneController, 'Phone Number', (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Phone number is required';
+                  }
+                  if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
+                    return 'Enter a valid 10-digit phone number';
+                  }
+                  return null;
+                }),
+                _buildPasswordField(_passwordController, 'Password', (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Password is required';
+                  }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                }),
+                _buildPasswordField(_confirmPasswordController, 'Confirm Password', (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Confirm Password is required';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'Passwords do not match';
+                  }
+                  return null;
+                }),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _signUp,
+                    child: Text('Sign Up', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.lightGreen,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 15),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // Build text fields for user input
-  Widget _buildTextField(TextEditingController controller, String label) {
+  // Build text fields for user input with validation
+  Widget _buildTextField(TextEditingController controller, String label, String? Function(String?)? validator) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
@@ -186,7 +218,7 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
             label,
             style: TextStyle(color: Colors.grey[600]),
           ),
-          TextField(
+          TextFormField(
             controller: controller,
             decoration: InputDecoration(
               filled: true,
@@ -196,14 +228,15 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
                 borderSide: BorderSide(color: Colors.grey),
               ),
             ),
+            validator: validator, // Add validation
           ),
         ],
       ),
     );
   }
 
-  // Build password fields with visibility toggle
-  Widget _buildPasswordField(TextEditingController controller, String label) {
+  // Build password fields with visibility toggle and validation
+  Widget _buildPasswordField(TextEditingController controller, String label, String? Function(String?)? validator) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
@@ -213,7 +246,7 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
             label,
             style: TextStyle(color: Colors.grey[600]),
           ),
-          TextField(
+          TextFormField(
             controller: controller,
             obscureText: !_isPasswordVisible,
             decoration: InputDecoration(
@@ -235,6 +268,7 @@ class _UserSignUpScreenState extends State<UserSignUpScreen> {
                 },
               ),
             ),
+            validator: validator, // Add validation
           ),
         ],
       ),

@@ -139,6 +139,10 @@ class _DriverSignupScreenState extends State<DriverSignupScreen> {
                           if (value == null || value.isEmpty) {
                             return 'Please enter your name';
                           }
+                          // Check if the name contains only letters (no numbers or special characters)
+                          if (!RegExp(r'^[a-zA-Z ]+$').hasMatch(value)) {
+                            return 'Name should contain only letters and spaces';
+                          }
                           return null;
                         },
                       ),
